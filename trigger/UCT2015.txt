@@ -1,0 +1,73 @@
+
+The UCT 2015 Emulation Sequence:
+
+----------------------
+1) HcalTpgMipEmbedder:
+----------------------
+produces<HcalTrigPrimDigiCollection>
+Inputs:  HcalTrigPrimDigiCollection
+Modifies existing Hcal TPGs to include setting MIP bit if tower above threshold.
+
+-----------------
+2) L1RCTProducer:
+-----------------
+produces<L1CaloEmCollection>()
+produces<L1CaloRegionCollection>()
+Inputs:  HcalTrigPrimDigiCollection, EcalTrigPrimDigiCollection
+Modifies:  Calls L1RCT emulation, with some changes to:
+
+DataFormats/L1CaloTrigger/interface/L1CaloEmCand.h
+DataFormats/L1CaloTrigger/src/L1CaloEmCand.cc
+L1TriggerConfig/L1ScalesProducers/interface/L1ScalesTrivialProducer.h
+L1TriggerConfig/L1ScalesProducers/src/L1ScalesTrivialProducer.cc
+
+to unpack the first 9-bits (0x1ff) in the EM candidate instead of the
+current 7-bits (0x03f), and make corresponding adjustments to the
+linear scale.
+
+(Note:  these changes, as coded, will break legacy emulation)
+
+----------------
+3) UCT2015Producer:
+----------------
+produces<UCTCandidateCollection> 
+  ... (Jet/ EG / Tau UCT candidate collections)
+Inputs:  L1CaloRegionCollection, L1CaloEmCollection;
+
+This simulates the proposed algorithm changes to the GCT which
+take advantage of the modifications at the RCT stage.
+
+This module could be modified to produce inputs needed for the current
+Global Trigger simulation.
+
+
+* * *
+
+Additional "Stage 1B" Steps:  Not needed for nominal Stage 1 upgrade.
+
+-----------------------------
+2.5) UCT2015EClusterProducer:
+-----------------------------
+produces<UCTCandidateCollection>( "EClustersUnpacked" );
+produces<L1CaloRegionCollection>( "ERegions" );
+iEvent.put(unpackedEClusters, "EClustersUnpacked");
+iEvent.put(ERegions, "ERegions");
+Inputs:  EcalTrigPrimDigiCollection
+
+Calculates improved resolution EMClusters, and EM-only 4x4 regions.
+Idea is EM part of 4x4 region can be subtracted from standard jet
+region, and improved resolution EM clusters.
+
+--------------------------
+3.5) UCTStage1BProducer.cc
+--------------------------
+produces<UCTCandidateCollection> 
+ ... (Jet / EG / Tau UCT candidate collections)
+Inputs:
+Handle<L1CaloRegionCollection> stage1Regions;
+Handle<L1CaloRegionCollection> emRegions;
+Handle<L1CaloEmCollection> tauCands;
+Handle<UCTCandidateCollection> emClusters;
+
+Improvements to EM, taus, and jets based on improved EM clusters from
+"Stage 1B" RCT. 
